@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -21,6 +22,19 @@ var rootMapNum = make(map[string]int64)
 type fileSize struct {
 	Path string
 	Size int64
+}
+type fileSizeList []fileSize
+
+func (o fileSizeList) Len() int {
+	return len(o)
+}
+
+func (o fileSizeList) Less(i, j int) bool {
+	return o[i].Size < o[j].Size
+}
+
+func (o fileSizeList) Swap(i, j int) {
+	o[i], o[j] = o[j], o[i]
 }
 
 func main() {
@@ -73,13 +87,14 @@ loop:
 		case <-ticket:
 			printDiskUsages(fileNum, totalSize)
 		case fileSize := <-filePathSize:
-			addRootPathSize(rootMapSize,fileSize)
+			addRootPathSize(rootMapSize, fileSize)
 		}
 
 	}
 
-	for k, v := range rootMapSize {
-		fmt.Printf("%s \t\t\t %.1f \n", k, float64(v)/1e9)
+	fileList := sortMapByValue(rootMapSize)
+	for _, f := range fileList {
+		fmt.Printf("%.1f \t %s \n", float64(f.Size)/1e9, f.Path)
 	}
 
 	fmt.Println("total: ")
@@ -137,4 +152,15 @@ func addRootPathSize(rootMap map[string]int64, file fileSize) {
 			break
 		}
 	}
+}
+
+func sortMapByValue(rootMap map[string]int64) fileSizeList {
+	var fileList = make(fileSizeList, len(rootMap))
+	i := 0
+	for k, v := range rootMap {
+		fileList[i] = fileSize{Path: k, Size: v}
+		i++
+	}
+	sort.Sort(sort.Reverse(fileList))
+	return fileList
 }
