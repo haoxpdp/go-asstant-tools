@@ -6,32 +6,26 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 )
 
+var dirs []string
+var r bool
+var fn string
+var verbose bool
+
 func main() {
-	flag.Parse()
-	dirs := flag.Args()
-	dir := initParams(dirs)
-	println(dir)
-	walkDirs(dir,"")
-}
-func initParams(dirs []string) string {
-	var dir string
-	if len(dirs) == 0 {
-		dir = "."
-	} else if len(dirs) == 1 {
-		dir = dirs[0]
-	} else {
-		println("error params")
-		os.Exit(1)
+	for _, dir := range dirs {
+		walkDirs(dir, fn)
 	}
-	return dir
 }
 
 func walkDirs(dir string, target string) {
 	info, _ := os.Stat(dir)
-
-	println(dir)
+	if matchFile(info.Name(), fn) {
+		println(dir)
+	}
 
 	if info.IsDir() {
 		infos := getChildFiles(dir)
@@ -44,8 +38,42 @@ func walkDirs(dir string, target string) {
 
 func getChildFiles(dir string) []os.FileInfo {
 	dirs, err := ioutil.ReadDir(dir)
-	if (err != nil) {
+	if err != nil {
 		fmt.Printf("walk dir error : %s %v \n", dir, err)
 	}
-	return dirs;
+	return dirs
+}
+
+func matchFile(fn string, target string) bool {
+	if r {
+		reg := regexp.MustCompile(target)
+		return reg.MatchString(fn)
+
+	} else {
+		return strings.HasPrefix(fn, target) ||
+			strings.Contains(fn, target) ||
+			strings.HasSuffix(fn, target)
+	}
+}
+
+func init() {
+
+	initParam()
+
+	if fn == "" {
+		fmt.Println("specified file name is empty")
+		os.Exit(2)
+	}
+
+}
+
+func initParam() {
+	flag.BoolVar(&r, "r", false, "use regular expression match target file.default false")
+	flag.StringVar(&fn, "f", "", "specified file name")
+	flag.BoolVar(&verbose, "v", false, "show search directs")
+	flag.Parse()
+	dirs = flag.Args()
+	if len(dirs) == 0 {
+		dirs = []string{"."}
+	}
 }
