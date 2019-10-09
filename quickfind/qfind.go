@@ -31,20 +31,41 @@ func main() {
 		wg.Wait()
 		close(files)
 	}()
-	println("find files : ")
-	for fs := range files {
-		println(fs)
+
+	if !verbose {
+
+	loop:
+		for {
+			select {
+			case dir, ok := <-files:
+				if !ok {
+					break loop
+				}
+				println(dir)
+			}
+
+		}
+	} else {
+		println("find files : ")
+		for fs := range files {
+			println(fs)
+		}
 	}
+
 }
 
 func walkDirs(dir string, target string, wg *sync.WaitGroup, files chan<- string) {
 	defer wg.Done()
+	if dir == "" {
+		return
+	}
 	info, err := os.Stat(dir)
 	if err != nil {
 		println("not a file name or direct : " + dir)
 		os.Exit(9)
 	}
 	if matchFile(info.Name(), fn) {
+		//println(info.ModTime().Format("2006-01-02 15:04:05"))
 		files <- dir
 	}
 
@@ -97,15 +118,10 @@ func init() {
 func initParam() {
 	flag.BoolVar(&r, "r", false, "use regular expression match target file.default false")
 	flag.StringVar(&fn, "f", "", "specified file name")
-	flag.BoolVar(&verbose, "v", false, "show search directs")
+	flag.BoolVar(&verbose, "v", false, "only show search result")
 	flag.BoolVar(&fuzzy, "t", false, "fuzzy matching input file name")
 	flag.Parse()
 	dirs = flag.Args()
-	if fuzzy {
-		println("full")
-	} else {
-		println("not full")
-	}
 	if len(dirs) == 0 {
 		dirs = []string{"."}
 	}
