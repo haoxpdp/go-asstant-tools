@@ -8,30 +8,52 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 )
 
 var dirs []string
 var r bool
 var fn string
 var verbose bool
+var fuzzy bool
+
+var seam = make(chan struct{}, 20)
 
 func main() {
+	var wg sync.WaitGroup
+	files := make(chan string)
 	for _, dir := range dirs {
-		walkDirs(dir, fn)
+		wg.Add(1)
+		go walkDirs(dir, fn, &wg, files)
+	}
+
+	go func() {
+		wg.Wait()
+		close(files)
+	}()
+	println("find files : ")
+	for fs := range files {
+		println(fs)
 	}
 }
 
-func walkDirs(dir string, target string) {
-	info, _ := os.Stat(dir)
+func walkDirs(dir string, target string, wg *sync.WaitGroup, files chan<- string) {
+	defer wg.Done()
+	info, err := os.Stat(dir)
+	if err != nil {
+		println("not a file name or direct : " + dir)
+		os.Exit(9)
+	}
 	if matchFile(info.Name(), fn) {
-		println(dir)
+		files <- dir
 	}
 
 	if info.IsDir() {
 		infos := getChildFiles(dir)
 		for _, info := range infos {
+			wg.Add(1)
 			subDir := filepath.Join(dir, info.Name())
-			walkDirs(subDir, target)
+			go walkDirs(subDir, target, wg, files)
 		}
 	}
 }
@@ -45,14 +67,19 @@ func getChildFiles(dir string) []os.FileInfo {
 }
 
 func matchFile(fn string, target string) bool {
+	seam <- struct{}{}
+	defer func() { <-seam }()
 	if r {
 		reg := regexp.MustCompile(target)
 		return reg.MatchString(fn)
 
 	} else {
-		return strings.HasPrefix(fn, target) ||
-			strings.Contains(fn, target) ||
-			strings.HasSuffix(fn, target)
+		if fuzzy {
+			return strings.HasPrefix(fn, target) ||
+				strings.Contains(fn, target) ||
+				strings.HasSuffix(fn, target)
+		}
+		return fn == target
 	}
 }
 
@@ -71,8 +98,14 @@ func initParam() {
 	flag.BoolVar(&r, "r", false, "use regular expression match target file.default false")
 	flag.StringVar(&fn, "f", "", "specified file name")
 	flag.BoolVar(&verbose, "v", false, "show search directs")
+	flag.BoolVar(&fuzzy, "t", false, "fuzzy matching input file name")
 	flag.Parse()
 	dirs = flag.Args()
+	if fuzzy {
+		println("full")
+	} else {
+		println("not full")
+	}
 	if len(dirs) == 0 {
 		dirs = []string{"."}
 	}
