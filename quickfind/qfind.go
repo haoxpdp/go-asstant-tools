@@ -61,8 +61,8 @@ func walkDirs(dir string, target string, wg *sync.WaitGroup, files chan<- string
 	}
 	info, err := os.Stat(dir)
 	if err != nil {
-		println("not a file name or direct : " + dir)
-		os.Exit(9)
+		fmt.Printf("walk dir error : %s %v \n", dir, err)
+		return
 	}
 	if matchFile(info.Name(), fn) {
 		//println(info.ModTime().Format("2006-01-02 15:04:05"))
