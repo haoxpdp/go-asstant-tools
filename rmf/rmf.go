@@ -55,4 +55,5 @@ func rmDir(dir string) {
 			fmt.Println("delete path [" + dir + "] failed!")
 		}
 	}
+
 }
