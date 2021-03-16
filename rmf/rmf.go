@@ -47,7 +47,7 @@ func rmDir(dir string) {
 		existed = false
 	}
 	if existed {
-		fmt.Println("remove : "+dir)
+		fmt.Println("remove : " + dir)
 	}
 	if existed {
 		e := os.RemoveAll(dir)
